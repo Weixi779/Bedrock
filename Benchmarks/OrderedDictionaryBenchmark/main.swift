@@ -26,14 +26,14 @@ struct OrderedDictionaryBenchmark {
         measure("element storage") {
             var dictionary = ElementStorageOrderedDictionary<Int, Int>()
             for key in 0..<size {
-                dictionary.updateValue(key, forKey: key)
+                dictionary.updateValue(key, for: key)
             }
             return dictionary.count
         }
         measure("split storage") {
             var dictionary = SplitStorageOrderedDictionary<Int, Int>()
             for key in 0..<size {
-                dictionary.updateValue(key, forKey: key)
+                dictionary.updateValue(key, for: key)
             }
             return dictionary.count
         }
@@ -46,18 +46,18 @@ struct OrderedDictionaryBenchmark {
         var elementDictionary = ElementStorageOrderedDictionary<Int, Int>()
         var splitDictionary = SplitStorageOrderedDictionary<Int, Int>()
         for key in 0..<size {
-            elementDictionary.updateValue(key, forKey: key)
-            splitDictionary.updateValue(key, forKey: key)
+            elementDictionary.updateValue(key, for: key)
+            splitDictionary.updateValue(key, for: key)
         }
 
         measure("element storage") {
             keys.reduce(into: 0) { sum, key in
-                sum &+= elementDictionary.value(forKey: key) ?? 0
+                sum &+= elementDictionary.value(for: key) ?? 0
             }
         }
         measure("split storage") {
             keys.reduce(into: 0) { sum, key in
-                sum &+= splitDictionary.value(forKey: key) ?? 0
+                sum &+= splitDictionary.value(for: key) ?? 0
             }
         }
         print("")
@@ -68,20 +68,20 @@ struct OrderedDictionaryBenchmark {
         measure("element storage") {
             var dictionary = ElementStorageOrderedDictionary<Int, Int>()
             for key in 0..<size {
-                dictionary.updateValue(key, forKey: key)
+                dictionary.updateValue(key, for: key)
             }
             for key in keys {
-                dictionary.updateValue(key &* 2, forKey: key)
+                dictionary.updateValue(key &* 2, for: key)
             }
             return dictionary.count
         }
         measure("split storage") {
             var dictionary = SplitStorageOrderedDictionary<Int, Int>()
             for key in 0..<size {
-                dictionary.updateValue(key, forKey: key)
+                dictionary.updateValue(key, for: key)
             }
             for key in keys {
-                dictionary.updateValue(key &* 2, forKey: key)
+                dictionary.updateValue(key &* 2, for: key)
             }
             return dictionary.count
         }
@@ -93,22 +93,22 @@ struct OrderedDictionaryBenchmark {
         measure("element storage") {
             var dictionary = ElementStorageOrderedDictionary<Int, Int>()
             for key in 0..<size {
-                dictionary.updateValue(key, forKey: key)
+                dictionary.updateValue(key, for: key)
             }
             var checksum = 0
             for key in keys {
-                checksum &+= dictionary.removeValue(forKey: key) ?? 0
+                checksum &+= dictionary.removeValue(for: key) ?? 0
             }
             return checksum &+ dictionary.count
         }
         measure("split storage") {
             var dictionary = SplitStorageOrderedDictionary<Int, Int>()
             for key in 0..<size {
-                dictionary.updateValue(key, forKey: key)
+                dictionary.updateValue(key, for: key)
             }
             var checksum = 0
             for key in keys {
-                checksum &+= dictionary.removeValue(forKey: key) ?? 0
+                checksum &+= dictionary.removeValue(for: key) ?? 0
             }
             return checksum &+ dictionary.count
         }
@@ -120,14 +120,14 @@ struct OrderedDictionaryBenchmark {
         measure("element storage") {
             var dictionary = ElementStorageOrderedDictionary<Int, Int>()
             for key in 0..<size {
-                dictionary.insert(key, forKey: key, at: 0)
+                dictionary.insert(key, for: key, at: 0)
             }
             return dictionary.count
         }
         measure("split storage") {
             var dictionary = SplitStorageOrderedDictionary<Int, Int>()
             for key in 0..<size {
-                dictionary.insert(key, forKey: key, at: 0)
+                dictionary.insert(key, for: key, at: 0)
             }
             return dictionary.count
         }
@@ -179,7 +179,7 @@ private struct ElementStorageOrderedDictionary<Key: Hashable, Value> {
         elements.count
     }
 
-    func value(forKey key: Key) -> Value? {
+    func value(for key: Key) -> Value? {
         guard let index = indices[key] else {
             return nil
         }
@@ -187,7 +187,7 @@ private struct ElementStorageOrderedDictionary<Key: Hashable, Value> {
         return elements[index].value
     }
 
-    mutating func updateValue(_ value: Value, forKey key: Key) {
+    mutating func updateValue(_ value: Value, for key: Key) {
         if let index = indices[key] {
             elements[index].value = value
             return
@@ -197,12 +197,12 @@ private struct ElementStorageOrderedDictionary<Key: Hashable, Value> {
         elements.append((key: key, value: value))
     }
 
-    mutating func insert(_ value: Value, forKey key: Key, at index: Int) {
+    mutating func insert(_ value: Value, for key: Key, at index: Int) {
         elements.insert((key: key, value: value), at: index)
         rebuildIndices(startingAt: index)
     }
 
-    mutating func removeValue(forKey key: Key) -> Value? {
+    mutating func removeValue(for key: Key) -> Value? {
         guard let index = indices.removeValue(forKey: key) else {
             return nil
         }
@@ -232,7 +232,7 @@ private struct SplitStorageOrderedDictionary<Key: Hashable, Value> {
         keys.count
     }
 
-    func value(forKey key: Key) -> Value? {
+    func value(for key: Key) -> Value? {
         guard let index = indices[key] else {
             return nil
         }
@@ -240,7 +240,7 @@ private struct SplitStorageOrderedDictionary<Key: Hashable, Value> {
         return values[index]
     }
 
-    mutating func updateValue(_ value: Value, forKey key: Key) {
+    mutating func updateValue(_ value: Value, for key: Key) {
         if let index = indices[key] {
             values[index] = value
             return
@@ -251,13 +251,13 @@ private struct SplitStorageOrderedDictionary<Key: Hashable, Value> {
         values.append(value)
     }
 
-    mutating func insert(_ value: Value, forKey key: Key, at index: Int) {
+    mutating func insert(_ value: Value, for key: Key, at index: Int) {
         keys.insert(key, at: index)
         values.insert(value, at: index)
         rebuildIndices(startingAt: index)
     }
 
-    mutating func removeValue(forKey key: Key) -> Value? {
+    mutating func removeValue(for key: Key) -> Value? {
         guard let index = indices.removeValue(forKey: key) else {
             return nil
         }

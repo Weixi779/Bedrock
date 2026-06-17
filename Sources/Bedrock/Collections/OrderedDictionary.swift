@@ -17,7 +17,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
         elements.isEmpty
     }
 
-    public subscript(key: Key) -> Value? {
+    public subscript(for key: Key) -> Value? {
         get {
             guard let index = indices[key] else {
                 return nil
@@ -27,11 +27,11 @@ public struct OrderedDictionary<Key: Hashable, Value> {
         }
         set {
             guard let newValue else {
-                removeValue(forKey: key)
+                removeValue(for: key)
                 return
             }
 
-            updateValue(newValue, forKey: key)
+            updateValue(newValue, for: key)
         }
     }
 
@@ -39,16 +39,16 @@ public struct OrderedDictionary<Key: Hashable, Value> {
         elements[position]
     }
 
-    public func index(forKey key: Key) -> Int? {
+    public func index(for key: Key) -> Int? {
         indices[key]
     }
 
-    public func containsKey(_ key: Key) -> Bool {
+    public func contains(for key: Key) -> Bool {
         indices[key] != nil
     }
 
     @discardableResult
-    public mutating func updateValue(_ value: Value, forKey key: Key) -> Value? {
+    public mutating func updateValue(_ value: Value, for key: Key) -> Value? {
         if let index = indices[key] {
             let oldValue = elements[index].value
             elements[index].value = value
@@ -60,7 +60,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
         return nil
     }
 
-    public mutating func insert(_ value: Value, forKey key: Key, at index: Int) {
+    public mutating func insert(_ value: Value, for key: Key, at index: Int) {
         precondition(indices[key] == nil, "Duplicate key: \(key)")
         precondition(index >= 0 && index <= elements.count, "Index out of range")
 
@@ -69,7 +69,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     }
 
     @discardableResult
-    public mutating func removeValue(forKey key: Key) -> Value? {
+    public mutating func removeValue(for key: Key) -> Value? {
         guard let index = indices.removeValue(forKey: key) else {
             return nil
         }
@@ -99,3 +99,21 @@ public struct OrderedDictionary<Key: Hashable, Value> {
 }
 
 extension OrderedDictionary: Sendable where Key: Sendable, Value: Sendable {}
+
+extension OrderedDictionary: RandomAccessCollection {
+    public var startIndex: Int {
+        elements.startIndex
+    }
+
+    public var endIndex: Int {
+        elements.endIndex
+    }
+
+    public func index(after index: Int) -> Int {
+        elements.index(after: index)
+    }
+
+    public func index(before index: Int) -> Int {
+        elements.index(before: index)
+    }
+}
