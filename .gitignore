@@ -4,7 +4,12 @@
 
 ## User settings
 xcuserdata/
+
+## macOS
 .DS_Store
+._*
+.AppleDouble
+.LSOverride
 
 ## Obj-C/Swift specific
 *.hmap
