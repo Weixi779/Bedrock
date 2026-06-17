@@ -13,6 +13,10 @@ let package = Package(
             name: "OrderedDictionaryBenchmark",
             targets: ["OrderedDictionaryBenchmark"]
         ),
+        .executable(
+            name: "OrderedSetBenchmark",
+            targets: ["OrderedSetBenchmark"]
+        ),
     ],
     targets: [
         .target(
@@ -22,6 +26,12 @@ let package = Package(
             name: "OrderedDictionaryBenchmark",
             dependencies: ["Bedrock"],
             path: "Benchmarks/OrderedDictionaryBenchmark",
+            exclude: ["README.md"]
+        ),
+        .executableTarget(
+            name: "OrderedSetBenchmark",
+            dependencies: ["Bedrock"],
+            path: "Benchmarks/OrderedSetBenchmark",
             exclude: ["README.md"]
         ),
         .testTarget(

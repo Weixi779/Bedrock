@@ -10,3 +10,4 @@ Bedrock is a collection of foundational building blocks for Swift, including dat
 Storage experiments live under `Benchmarks/`, with one folder per benchmark.
 
 - [OrderedDictionaryBenchmark](Benchmarks/OrderedDictionaryBenchmark/README.md)
+- [OrderedSetBenchmark](Benchmarks/OrderedSetBenchmark/README.md)
