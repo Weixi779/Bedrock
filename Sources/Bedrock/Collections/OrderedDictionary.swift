@@ -19,10 +19,14 @@
 public struct OrderedDictionary<Key: Hashable, Value> {
     public typealias Element = (key: Key, value: Value)
 
-    private var elements: [Element]
-    private var indices: [Key: Int]
+    @usableFromInline
+    internal var elements: [Element]
+
+    @usableFromInline
+    internal var indices: [Key: Int]
 
     /// Creates an empty dictionary.
+    @inlinable
     public init() {
         self.elements = []
         self.indices = [:]
@@ -35,6 +39,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     /// position.
     ///
     /// - Complexity: O(*n*) on average, where *n* is the length of `elements`.
+    @inlinable
     public init<S: Sequence>(_ elements: S) where S.Element == Element {
         self.init()
         reserveCapacity(elements.underestimatedCount)
@@ -47,6 +52,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     /// The number of key/value pairs in the dictionary.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public var count: Int {
         elements.count
     }
@@ -54,6 +60,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     /// A Boolean value indicating whether the dictionary is empty.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public var isEmpty: Bool {
         elements.isEmpty
     }
@@ -61,6 +68,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     /// The keys of the dictionary, in order.
     ///
     /// - Complexity: O(*n*).
+    @inlinable
     public var keys: [Key] {
         elements.map(\.key)
     }
@@ -68,6 +76,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     /// The values of the dictionary, in order.
     ///
     /// - Complexity: O(*n*).
+    @inlinable
     public var values: [Value] {
         elements.map(\.value)
     }
@@ -79,6 +88,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     ///
     /// - Complexity: O(1) for reads and updates. Removing or inserting through
     ///   this subscript is O(*n*) because following indices are rebuilt.
+    @inlinable
     public subscript(key key: Key) -> Value? {
         get {
             guard let index = indices[key] else {
@@ -100,6 +110,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     /// Accesses the key/value pair at the given position.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public subscript(position: Int) -> Element {
         elements[position]
     }
@@ -107,6 +118,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     /// Returns the position of the given key, or `nil` if it is not present.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public func index(forKey key: Key) -> Int? {
         indices[key]
     }
@@ -115,6 +127,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     /// given key.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public func contains(key: Key) -> Bool {
         indices[key] != nil
     }
@@ -125,6 +138,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     ///   key was newly inserted.
     /// - Complexity: O(1) on average.
     @discardableResult
+    @inlinable
     public mutating func updateValue(_ value: Value, forKey key: Key) -> Value? {
         if let index = indices[key] {
             let oldValue = elements[index].value
@@ -142,6 +156,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     /// - Precondition: `key` is not already present, and `index` is within
     ///   `0...count`.
     /// - Complexity: O(*n*) because following indices are rebuilt.
+    @inlinable
     public mutating func insert(_ value: Value, forKey key: Key, at index: Int) {
         precondition(indices[key] == nil, "Duplicate key: \(key)")
         precondition(index >= 0 && index <= elements.count, "Index out of range")
@@ -153,6 +168,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     /// Reserves enough storage to hold the requested number of pairs.
     ///
     /// - Complexity: O(*n*).
+    @inlinable
     public mutating func reserveCapacity(_ minimumCapacity: Int) {
         elements.reserveCapacity(minimumCapacity)
         indices.reserveCapacity(minimumCapacity)
@@ -163,6 +179,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     /// - Returns: The removed value, or `nil` if the key was not present.
     /// - Complexity: O(*n*) because following indices are rebuilt.
     @discardableResult
+    @inlinable
     public mutating func removeValue(forKey key: Key) -> Value? {
         guard let index = indices.removeValue(forKey: key) else {
             return nil
@@ -177,6 +194,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     ///
     /// - Complexity: O(*n*) because following indices are rebuilt.
     @discardableResult
+    @inlinable
     public mutating func remove(at index: Int) -> Element {
         let element = elements.remove(at: index)
         indices.removeValue(forKey: element.key)
@@ -187,12 +205,14 @@ public struct OrderedDictionary<Key: Hashable, Value> {
     /// Removes all key/value pairs.
     ///
     /// - Complexity: O(*n*).
+    @inlinable
     public mutating func removeAll(keepingCapacity keepCapacity: Bool = false) {
         elements.removeAll(keepingCapacity: keepCapacity)
         indices.removeAll(keepingCapacity: keepCapacity)
     }
 
-    private mutating func rebuildIndices(startingAt startIndex: Int = 0) {
+    @usableFromInline
+    internal mutating func rebuildIndices(startingAt startIndex: Int = 0) {
         guard startIndex < elements.count else {
             return
         }
@@ -206,6 +226,7 @@ public struct OrderedDictionary<Key: Hashable, Value> {
 extension OrderedDictionary: Sendable where Key: Sendable, Value: Sendable {}
 
 extension OrderedDictionary: Equatable where Value: Equatable {
+    @inlinable
     public static func == (lhs: Self, rhs: Self) -> Bool {
         guard lhs.elements.count == rhs.elements.count else {
             return false
@@ -227,6 +248,7 @@ extension OrderedDictionary: Equatable where Value: Equatable {
 }
 
 extension OrderedDictionary: Hashable where Value: Hashable {
+    @inlinable
     public func hash(into hasher: inout Hasher) {
         hasher.combine(elements.count)
 
@@ -252,6 +274,7 @@ extension OrderedDictionary: CustomDebugStringConvertible {
 }
 
 extension OrderedDictionary: ExpressibleByDictionaryLiteral {
+    @inlinable
     public init(dictionaryLiteral elements: (Key, Value)...) {
         self.init()
         reserveCapacity(elements.count)
@@ -263,18 +286,22 @@ extension OrderedDictionary: ExpressibleByDictionaryLiteral {
 }
 
 extension OrderedDictionary: RandomAccessCollection {
+    @inlinable
     public var startIndex: Int {
         elements.startIndex
     }
 
+    @inlinable
     public var endIndex: Int {
         elements.endIndex
     }
 
+    @inlinable
     public func index(after index: Int) -> Int {
         elements.index(after: index)
     }
 
+    @inlinable
     public func index(before index: Int) -> Int {
         elements.index(before: index)
     }

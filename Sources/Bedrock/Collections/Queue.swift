@@ -17,10 +17,14 @@
 /// two queues holding the same elements in the same order compare equal
 /// regardless of how those elements are distributed internally.
 public struct Queue<Element> {
-    private var inbox: [Element]
-    private var outbox: [Element]
+    @usableFromInline
+    internal var inbox: [Element]
+
+    @usableFromInline
+    internal var outbox: [Element]
 
     /// Creates an empty queue.
+    @inlinable
     public init() {
         self.inbox = []
         self.outbox = []
@@ -32,6 +36,7 @@ public struct Queue<Element> {
     /// element becomes the back.
     ///
     /// - Complexity: O(*n*), where *n* is the length of `elements`.
+    @inlinable
     public init<S: Sequence>(_ elements: S) where S.Element == Element {
         self.inbox = Array(elements)
         self.outbox = []
@@ -40,6 +45,7 @@ public struct Queue<Element> {
     /// The number of elements in the queue.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public var count: Int {
         inbox.count + outbox.count
     }
@@ -47,6 +53,7 @@ public struct Queue<Element> {
     /// A Boolean value indicating whether the queue is empty.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public var isEmpty: Bool {
         inbox.isEmpty && outbox.isEmpty
     }
@@ -54,6 +61,7 @@ public struct Queue<Element> {
     /// The element at the front of the queue, or `nil` if the queue is empty.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public var front: Element? {
         outbox.last ?? inbox.first
     }
@@ -61,6 +69,7 @@ public struct Queue<Element> {
     /// The element at the back of the queue, or `nil` if the queue is empty.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public var back: Element? {
         inbox.last ?? outbox.first
     }
@@ -68,6 +77,7 @@ public struct Queue<Element> {
     /// The elements of the queue in front-to-back order.
     ///
     /// - Complexity: O(*n*).
+    @inlinable
     public var elements: [Element] {
         var ordered = outbox
         ordered.reverse()
@@ -78,6 +88,7 @@ public struct Queue<Element> {
     /// Adds an element to the back of the queue.
     ///
     /// - Complexity: O(1) on average.
+    @inlinable
     public mutating func enqueue(_ element: Element) {
         inbox.append(element)
     }
@@ -87,6 +98,7 @@ public struct Queue<Element> {
     /// - Complexity: Amortized O(1). A call that transfers the `inbox` to the
     ///   `outbox` is O(*n*).
     @discardableResult
+    @inlinable
     public mutating func dequeue() -> Element? {
         if outbox.isEmpty {
             refillOutbox()
@@ -98,6 +110,7 @@ public struct Queue<Element> {
     /// Reserves enough storage to hold the requested number of elements.
     ///
     /// - Complexity: O(*n*).
+    @inlinable
     public mutating func reserveCapacity(_ minimumCapacity: Int) {
         inbox.reserveCapacity(minimumCapacity)
     }
@@ -105,12 +118,14 @@ public struct Queue<Element> {
     /// Removes all elements.
     ///
     /// - Complexity: O(*n*).
+    @inlinable
     public mutating func removeAll(keepingCapacity keepCapacity: Bool = false) {
         inbox.removeAll(keepingCapacity: keepCapacity)
         outbox.removeAll(keepingCapacity: keepCapacity)
     }
 
-    private mutating func refillOutbox() {
+    @usableFromInline
+    internal mutating func refillOutbox() {
         outbox = inbox.reversed()
         inbox.removeAll(keepingCapacity: true)
     }
@@ -119,12 +134,14 @@ public struct Queue<Element> {
 extension Queue: Sendable where Element: Sendable {}
 
 extension Queue: Equatable where Element: Equatable {
+    @inlinable
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.count == rhs.count && lhs.elements == rhs.elements
     }
 }
 
 extension Queue: Hashable where Element: Hashable {
+    @inlinable
     public func hash(into hasher: inout Hasher) {
         hasher.combine(elements)
     }
@@ -146,6 +163,7 @@ extension Queue: CustomDebugStringConvertible {
 }
 
 extension Queue: ExpressibleByArrayLiteral {
+    @inlinable
     public init(arrayLiteral elements: Element...) {
         self.init(elements)
     }

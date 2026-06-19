@@ -185,9 +185,9 @@ dictionary[0] = (
 
 ```swift
 dictionary[key: key] = value
-dictionary.updateValue(value, for: key)
-dictionary.insert(value, for: key, at: index)
-dictionary.removeValue(for: key)
+dictionary.updateValue(value, forKey: key)
+dictionary.insert(value, forKey: key, at: index)
+dictionary.removeValue(forKey: key)
 ```
 
 因此当前阶段不建议让 `OrderedDictionary` 实现 `MutableCollection`。
@@ -246,22 +246,48 @@ OrderedDictionary: RangeReplaceableCollection
 
 ## Bedrock 指南
 
-对于有序哈希集合：
+各集合类型当前的协议选择：
+
+| 类型 | Collection | RandomAccess | Mutable | RangeReplaceable | Equatable / Hashable |
+|---|---|---|---|---|---|
+| `OrderedDictionary` | ✅ | ✅ | ❌ | ❌ | 条件遵循（`Value: Equatable` / `Value: Hashable`） |
+| `OrderedSet` | ✅ | ✅ | ❌ | ❌ | ✅ |
+| `Deque` | ✅ | ✅ | ✅ | ✅ | 条件遵循（`Element: …`） |
+| `RingBuffer` | ✅ | ✅ | ✅ | ❌ | 条件遵循（`Element: …`） |
+| `Stack` | ❌ | — | — | — | 条件遵循（`Element: …`） |
+| `Queue` | ❌ | — | — | — | 条件遵循（`Element: …`） |
+
+总原则：**只有当一个协议的语义对该类型确实成立、且不会引诱出破坏不变量的用法时才遵循它。** mutation 相关协议（`MutableCollection` / `RangeReplaceableCollection`）尤其要谨慎。
+
+### 有序哈希集合：`OrderedDictionary` / `OrderedSet`
+
+底层用数组保存顺序元素 + 哈希表保存索引，因此 `RandomAccessCollection` 合理。但不实现 `MutableCollection` / `RangeReplaceableCollection`：
+
+- 按位置原地替换会绕过 key/element 唯一性与索引重建（见上文 `MutableCollection`、`RangeReplaceableCollection` 两节）。
+- 这些不变量由 Bedrock 自己命名清晰的 API 维护（`updateValue(_:forKey:)`、`insert(_:forKey:at:)`、`update(with:)` 等）。
+
+相等性是**顺序敏感**的：`OrderedSet([1, 2]) != OrderedSet([2, 1])`，`OrderedDictionary` 同理。这一点与标准 `Set` / `Dictionary` 不同，刻意写进了类型文档。
+
+### `Deque`
+
+环形缓冲、逻辑下标从 0 到 `count - 1` 稠密排列，且没有 key 这类额外不变量，因此三个协议都安全：
 
 ```text
-OrderedDictionary -> RandomAccessCollection
-OrderedSet        -> RandomAccessCollection
-LRUCache          -> 暂时不要实现 Collection
+RandomAccessCollection:    yes
+MutableCollection:         yes   // 按位置改值不破坏任何不变量
+RangeReplaceableCollection: yes  // 区间插入/删除语义清晰
 ```
 
-mutation 相关协议要更谨慎。只有当公开 mutation 语义足够清楚时，再考虑加入。
+队头、队尾插入与删除都是均摊 O(1)。
 
-当前 `OrderedDictionary` 的选择是：
+### `RingBuffer`
 
-```text
-RandomAccessCollection: yes
-MutableCollection: no
-RangeReplaceableCollection: not yet
-```
+固定容量的环形缓冲，满则覆盖最旧元素。`RandomAccessCollection` + `MutableCollection` 与 `Deque` 同理成立，但**不实现 `RangeReplaceableCollection`**：固定容量下「区间替换」语义不清（插入超过容量怎么办、淘汰谁、是否返回被挤出的元素），更适合由专门命名的 `append(_:) -> Element?` 表达。
 
-这样用户可以获得标准 Swift 遍历和高阶函数能力，同时 key/value 不变量仍然由 Bedrock 自己的 API 控制。
+实现上 `RingBuffer` 是 `Deque` 之上的一层「有界 + 覆盖」策略（组合一个 `Deque`，自己只管 `capacity` 与满时淘汰），而不是再写一份环形逻辑。
+
+### `Stack` / `Queue`
+
+刻意**不**实现 `Collection`。它们的契约只有端操作（`push`/`pop`/`top`，`enqueue`/`dequeue`/`front`/`back`），暴露稳定索引与位置下标只会引诱出违反 LIFO/FIFO 的用法。需要遍历时通过它们各自的有序视图即可。
+
+两者仍条件遵循 `Equatable` / `Hashable`（顺序敏感）；`Queue` 的相等比较的是**逻辑前后顺序**，与内部 inbox/outbox 的切分无关。

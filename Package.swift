@@ -17,6 +17,10 @@ let package = Package(
             name: "OrderedSetBenchmark",
             targets: ["OrderedSetBenchmark"]
         ),
+        .executable(
+            name: "DequeBenchmark",
+            targets: ["DequeBenchmark"]
+        ),
     ],
     targets: [
         .target(
@@ -32,6 +36,12 @@ let package = Package(
             name: "OrderedSetBenchmark",
             dependencies: ["Bedrock"],
             path: "Benchmarks/OrderedSetBenchmark",
+            exclude: ["README.md"]
+        ),
+        .executableTarget(
+            name: "DequeBenchmark",
+            dependencies: ["Bedrock"],
+            path: "Benchmarks/DequeBenchmark",
             exclude: ["README.md"]
         ),
         .testTarget(

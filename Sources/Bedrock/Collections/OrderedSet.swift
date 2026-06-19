@@ -17,10 +17,14 @@
 /// `OrderedSet([1, 2])` is *not* equal to `OrderedSet([2, 1])`, which differs
 /// from the standard `Set`.
 public struct OrderedSet<Element: Hashable> {
-    private var elements: [Element]
-    private var indices: [Element: Int]
+    @usableFromInline
+    internal var elements: [Element]
+
+    @usableFromInline
+    internal var indices: [Element: Int]
 
     /// Creates an empty set.
+    @inlinable
     public init() {
         self.elements = []
         self.indices = [:]
@@ -30,6 +34,7 @@ public struct OrderedSet<Element: Hashable> {
     /// member and discarding later duplicates.
     ///
     /// - Complexity: O(*n*) on average, where *n* is the length of `elements`.
+    @inlinable
     public init<S: Sequence>(_ elements: S) where S.Element == Element {
         self.init()
         reserveCapacity(elements.underestimatedCount)
@@ -42,6 +47,7 @@ public struct OrderedSet<Element: Hashable> {
     /// The number of members in the set.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public var count: Int {
         elements.count
     }
@@ -49,6 +55,7 @@ public struct OrderedSet<Element: Hashable> {
     /// A Boolean value indicating whether the set is empty.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public var isEmpty: Bool {
         elements.isEmpty
     }
@@ -56,6 +63,7 @@ public struct OrderedSet<Element: Hashable> {
     /// Accesses the member at the given position.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public subscript(position: Int) -> Element {
         elements[position]
     }
@@ -63,6 +71,7 @@ public struct OrderedSet<Element: Hashable> {
     /// Returns a Boolean value indicating whether the set contains the member.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public func contains(_ element: Element) -> Bool {
         indices[element] != nil
     }
@@ -70,6 +79,7 @@ public struct OrderedSet<Element: Hashable> {
     /// Returns the position of the given member, or `nil` if it is not present.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public func index(for element: Element) -> Int? {
         indices[element]
     }
@@ -80,6 +90,7 @@ public struct OrderedSet<Element: Hashable> {
     ///   present.
     /// - Complexity: O(1) on average.
     @discardableResult
+    @inlinable
     public mutating func insert(_ element: Element) -> Bool {
         guard indices[element] == nil else {
             return false
@@ -99,6 +110,7 @@ public struct OrderedSet<Element: Hashable> {
     /// - Precondition: `index` is within `0...count`.
     /// - Complexity: O(*n*) because following indices are rebuilt.
     @discardableResult
+    @inlinable
     public mutating func insert(_ element: Element, at index: Int) -> Bool {
         precondition(index >= 0 && index <= elements.count, "Index out of range")
 
@@ -114,6 +126,7 @@ public struct OrderedSet<Element: Hashable> {
     /// Reserves enough storage to hold the requested number of members.
     ///
     /// - Complexity: O(*n*).
+    @inlinable
     public mutating func reserveCapacity(_ minimumCapacity: Int) {
         elements.reserveCapacity(minimumCapacity)
         indices.reserveCapacity(minimumCapacity)
@@ -124,6 +137,7 @@ public struct OrderedSet<Element: Hashable> {
     /// - Returns: The member that was replaced, or `nil` if the member is new.
     /// - Complexity: O(1) on average.
     @discardableResult
+    @inlinable
     public mutating func update(with element: Element) -> Element? {
         guard let index = indices[element] else {
             indices[element] = elements.count
@@ -143,6 +157,7 @@ public struct OrderedSet<Element: Hashable> {
     /// - Returns: The removed member, or `nil` if it was not present.
     /// - Complexity: O(*n*) because following indices are rebuilt.
     @discardableResult
+    @inlinable
     public mutating func remove(_ element: Element) -> Element? {
         guard let index = indices.removeValue(forKey: element) else {
             return nil
@@ -157,6 +172,7 @@ public struct OrderedSet<Element: Hashable> {
     ///
     /// - Complexity: O(*n*) because following indices are rebuilt.
     @discardableResult
+    @inlinable
     public mutating func remove(at index: Int) -> Element {
         let element = elements.remove(at: index)
         indices.removeValue(forKey: element)
@@ -167,12 +183,14 @@ public struct OrderedSet<Element: Hashable> {
     /// Removes all members.
     ///
     /// - Complexity: O(*n*).
+    @inlinable
     public mutating func removeAll(keepingCapacity keepCapacity: Bool = false) {
         elements.removeAll(keepingCapacity: keepCapacity)
         indices.removeAll(keepingCapacity: keepCapacity)
     }
 
-    private mutating func rebuildIndices(startingAt startIndex: Int = 0) {
+    @usableFromInline
+    internal mutating func rebuildIndices(startingAt startIndex: Int = 0) {
         guard startIndex < elements.count else {
             return
         }
@@ -193,6 +211,7 @@ extension OrderedSet {
     /// members from `other` in the order they are first encountered.
     ///
     /// - Complexity: O(*n* + *m*) on average.
+    @inlinable
     public func union<S: Sequence>(_ other: S) -> OrderedSet where S.Element == Element {
         var result = self
         result.formUnion(other)
@@ -202,6 +221,7 @@ extension OrderedSet {
     /// Inserts the members of the given sequence that are not already present.
     ///
     /// - Complexity: O(*m*) on average, where *m* is the length of `other`.
+    @inlinable
     public mutating func formUnion<S: Sequence>(_ other: S) where S.Element == Element {
         for element in other {
             insert(element)
@@ -212,6 +232,7 @@ extension OrderedSet {
     /// keeping this set's order.
     ///
     /// - Complexity: O(*n* + *m*) on average.
+    @inlinable
     public func intersection<S: Sequence>(_ other: S) -> OrderedSet where S.Element == Element {
         let otherMembers = Set(other)
         var result = OrderedSet()
@@ -224,6 +245,7 @@ extension OrderedSet {
     /// Removes the members that are not also in the given sequence.
     ///
     /// - Complexity: O(*n* + *m*) on average.
+    @inlinable
     public mutating func formIntersection<S: Sequence>(_ other: S) where S.Element == Element {
         self = intersection(other)
     }
@@ -232,6 +254,7 @@ extension OrderedSet {
     /// keeping this set's order.
     ///
     /// - Complexity: O(*n* + *m*) on average.
+    @inlinable
     public func subtracting<S: Sequence>(_ other: S) -> OrderedSet where S.Element == Element {
         let otherMembers = Set(other)
         var result = OrderedSet()
@@ -244,6 +267,7 @@ extension OrderedSet {
     /// Removes the members that are also in the given sequence.
     ///
     /// - Complexity: O(*n* + *m*) on average.
+    @inlinable
     public mutating func subtract<S: Sequence>(_ other: S) where S.Element == Element {
         self = subtracting(other)
     }
@@ -255,6 +279,7 @@ extension OrderedSet {
     /// by the surviving members of `other` in their encountered order.
     ///
     /// - Complexity: O(*n* + *m*) on average.
+    @inlinable
     public func symmetricDifference<S: Sequence>(_ other: S) -> OrderedSet where S.Element == Element {
         let otherSet = OrderedSet(other)
         var result = OrderedSet()
@@ -271,6 +296,7 @@ extension OrderedSet {
     /// given sequence, but not both.
     ///
     /// - Complexity: O(*n* + *m*) on average.
+    @inlinable
     public mutating func formSymmetricDifference<S: Sequence>(_ other: S) where S.Element == Element {
         self = symmetricDifference(other)
     }
@@ -279,12 +305,14 @@ extension OrderedSet {
 extension OrderedSet: Sendable where Element: Sendable {}
 
 extension OrderedSet: Equatable {
+    @inlinable
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.elements == rhs.elements
     }
 }
 
 extension OrderedSet: Hashable {
+    @inlinable
     public func hash(into hasher: inout Hasher) {
         hasher.combine(elements)
     }
@@ -305,24 +333,29 @@ extension OrderedSet: CustomDebugStringConvertible {
 }
 
 extension OrderedSet: ExpressibleByArrayLiteral {
+    @inlinable
     public init(arrayLiteral elements: Element...) {
         self.init(elements)
     }
 }
 
 extension OrderedSet: RandomAccessCollection {
+    @inlinable
     public var startIndex: Int {
         elements.startIndex
     }
 
+    @inlinable
     public var endIndex: Int {
         elements.endIndex
     }
 
+    @inlinable
     public func index(after index: Int) -> Int {
         elements.index(after: index)
     }
 
+    @inlinable
     public func index(before index: Int) -> Int {
         elements.index(before: index)
     }

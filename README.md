@@ -7,6 +7,8 @@ Bedrock is a collection of foundational building blocks for Swift, including dat
 - `OrderedSet`
 - `Stack`
 - `Queue`
+- `Deque`
+- `RingBuffer`
 
 ## Notes
 
@@ -18,3 +20,4 @@ Storage experiments live under `Benchmarks/`, with one folder per benchmark.
 
 - [OrderedDictionaryBenchmark](Benchmarks/OrderedDictionaryBenchmark/README.md)
 - [OrderedSetBenchmark](Benchmarks/OrderedSetBenchmark/README.md)
+- [DequeBenchmark](Benchmarks/DequeBenchmark/README.md)

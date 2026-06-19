@@ -13,9 +13,11 @@
 /// Equality and hashing are order-sensitive: two stacks are equal only if they
 /// contain the same elements in the same bottom-to-top order.
 public struct Stack<Element> {
-    private var storage: [Element]
+    @usableFromInline
+    internal var storage: [Element]
 
     /// Creates an empty stack.
+    @inlinable
     public init() {
         self.storage = []
     }
@@ -26,6 +28,7 @@ public struct Stack<Element> {
     /// last element becomes the top.
     ///
     /// - Complexity: O(*n*), where *n* is the length of `elements`.
+    @inlinable
     public init<S: Sequence>(_ elements: S) where S.Element == Element {
         self.storage = Array(elements)
     }
@@ -33,6 +36,7 @@ public struct Stack<Element> {
     /// The number of elements in the stack.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public var count: Int {
         storage.count
     }
@@ -40,6 +44,7 @@ public struct Stack<Element> {
     /// A Boolean value indicating whether the stack is empty.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public var isEmpty: Bool {
         storage.isEmpty
     }
@@ -47,6 +52,7 @@ public struct Stack<Element> {
     /// The element at the top of the stack, or `nil` if the stack is empty.
     ///
     /// - Complexity: O(1).
+    @inlinable
     public var top: Element? {
         storage.last
     }
@@ -54,6 +60,7 @@ public struct Stack<Element> {
     /// Pushes an element onto the top of the stack.
     ///
     /// - Complexity: O(1) on average.
+    @inlinable
     public mutating func push(_ element: Element) {
         storage.append(element)
     }
@@ -62,6 +69,7 @@ public struct Stack<Element> {
     ///
     /// - Complexity: O(1).
     @discardableResult
+    @inlinable
     public mutating func pop() -> Element? {
         storage.popLast()
     }
@@ -69,6 +77,7 @@ public struct Stack<Element> {
     /// Reserves enough storage to hold the requested number of elements.
     ///
     /// - Complexity: O(*n*).
+    @inlinable
     public mutating func reserveCapacity(_ minimumCapacity: Int) {
         storage.reserveCapacity(minimumCapacity)
     }
@@ -76,6 +85,7 @@ public struct Stack<Element> {
     /// Removes all elements.
     ///
     /// - Complexity: O(*n*).
+    @inlinable
     public mutating func removeAll(keepingCapacity keepCapacity: Bool = false) {
         storage.removeAll(keepingCapacity: keepCapacity)
     }
@@ -84,12 +94,14 @@ public struct Stack<Element> {
 extension Stack: Sendable where Element: Sendable {}
 
 extension Stack: Equatable where Element: Equatable {
+    @inlinable
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.storage == rhs.storage
     }
 }
 
 extension Stack: Hashable where Element: Hashable {
+    @inlinable
     public func hash(into hasher: inout Hasher) {
         hasher.combine(storage)
     }
@@ -98,19 +110,20 @@ extension Stack: Hashable where Element: Hashable {
 extension Stack: CustomStringConvertible {
     /// A textual representation listing elements from bottom to top.
     public var description: String {
-        let elements = storage.map { "\($0)" }
-        return "[\(elements.joined(separator: ", "))]"
+        let members = storage.map { "\($0)" }
+        return "[\(members.joined(separator: ", "))]"
     }
 }
 
 extension Stack: CustomDebugStringConvertible {
     public var debugDescription: String {
-        let elements = storage.map { String(reflecting: $0) }
-        return "Stack([\(elements.joined(separator: ", "))])"
+        let members = storage.map { String(reflecting: $0) }
+        return "Stack([\(members.joined(separator: ", "))])"
     }
 }
 
 extension Stack: ExpressibleByArrayLiteral {
+    @inlinable
     public init(arrayLiteral elements: Element...) {
         self.init(elements)
     }
