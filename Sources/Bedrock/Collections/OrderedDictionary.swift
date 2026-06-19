@@ -1,23 +1,85 @@
+//
+//  OrderedDictionary.swift
+//  Bedrock
+//
+//  Created by weixi on 2026/6/18.
+//
+
+/// A hash-backed dictionary that remembers the insertion order of its keys.
+///
+/// `OrderedDictionary` stores its elements contiguously in insertion order and
+/// keeps a `[Key: Int]` side table for O(1) key lookups. Iteration always
+/// reflects insertion order, and integer subscripting gives random access into
+/// that order.
+///
+/// Equality and hashing are **order-sensitive**: two dictionaries are equal
+/// only if they contain the same key/value pairs in the same order. As a
+/// result `["a": 1, "b": 2]` is *not* equal to `["b": 2, "a": 1]`, which
+/// differs from the standard `Dictionary`.
 public struct OrderedDictionary<Key: Hashable, Value> {
     public typealias Element = (key: Key, value: Value)
 
     private var elements: [Element]
     private var indices: [Key: Int]
 
+    /// Creates an empty dictionary.
     public init() {
         self.elements = []
         self.indices = [:]
     }
 
+    /// Creates a dictionary from a sequence of key/value pairs.
+    ///
+    /// Pairs are inserted in order. If the same key appears more than once, the
+    /// later value overwrites the earlier one while keeping the key's original
+    /// position.
+    ///
+    /// - Complexity: O(*n*) on average, where *n* is the length of `elements`.
+    public init<S: Sequence>(_ elements: S) where S.Element == Element {
+        self.init()
+        reserveCapacity(elements.underestimatedCount)
+
+        for element in elements {
+            updateValue(element.value, forKey: element.key)
+        }
+    }
+
+    /// The number of key/value pairs in the dictionary.
+    ///
+    /// - Complexity: O(1).
     public var count: Int {
         elements.count
     }
 
+    /// A Boolean value indicating whether the dictionary is empty.
+    ///
+    /// - Complexity: O(1).
     public var isEmpty: Bool {
         elements.isEmpty
     }
 
-    public subscript(for key: Key) -> Value? {
+    /// The keys of the dictionary, in order.
+    ///
+    /// - Complexity: O(*n*).
+    public var keys: [Key] {
+        elements.map(\.key)
+    }
+
+    /// The values of the dictionary, in order.
+    ///
+    /// - Complexity: O(*n*).
+    public var values: [Value] {
+        elements.map(\.value)
+    }
+
+    /// Accesses the value associated with the given key.
+    ///
+    /// Reading returns `nil` for a missing key. Writing a value updates or
+    /// inserts the key; writing `nil` removes it.
+    ///
+    /// - Complexity: O(1) for reads and updates. Removing or inserting through
+    ///   this subscript is O(*n*) because following indices are rebuilt.
+    public subscript(key key: Key) -> Value? {
         get {
             guard let index = indices[key] else {
                 return nil
@@ -27,28 +89,43 @@ public struct OrderedDictionary<Key: Hashable, Value> {
         }
         set {
             guard let newValue else {
-                removeValue(for: key)
+                removeValue(forKey: key)
                 return
             }
 
-            updateValue(newValue, for: key)
+            updateValue(newValue, forKey: key)
         }
     }
 
+    /// Accesses the key/value pair at the given position.
+    ///
+    /// - Complexity: O(1).
     public subscript(position: Int) -> Element {
         elements[position]
     }
 
-    public func index(for key: Key) -> Int? {
+    /// Returns the position of the given key, or `nil` if it is not present.
+    ///
+    /// - Complexity: O(1).
+    public func index(forKey key: Key) -> Int? {
         indices[key]
     }
 
-    public func contains(for key: Key) -> Bool {
+    /// Returns a Boolean value indicating whether the dictionary contains the
+    /// given key.
+    ///
+    /// - Complexity: O(1).
+    public func contains(key: Key) -> Bool {
         indices[key] != nil
     }
 
+    /// Updates the value for the given key, appending the key if it is new.
+    ///
+    /// - Returns: The value previously associated with the key, or `nil` if the
+    ///   key was newly inserted.
+    /// - Complexity: O(1) on average.
     @discardableResult
-    public mutating func updateValue(_ value: Value, for key: Key) -> Value? {
+    public mutating func updateValue(_ value: Value, forKey key: Key) -> Value? {
         if let index = indices[key] {
             let oldValue = elements[index].value
             elements[index].value = value
@@ -60,7 +137,12 @@ public struct OrderedDictionary<Key: Hashable, Value> {
         return nil
     }
 
-    public mutating func insert(_ value: Value, for key: Key, at index: Int) {
+    /// Inserts a value for a new key at the given position.
+    ///
+    /// - Precondition: `key` is not already present, and `index` is within
+    ///   `0...count`.
+    /// - Complexity: O(*n*) because following indices are rebuilt.
+    public mutating func insert(_ value: Value, forKey key: Key, at index: Int) {
         precondition(indices[key] == nil, "Duplicate key: \(key)")
         precondition(index >= 0 && index <= elements.count, "Index out of range")
 
@@ -68,8 +150,20 @@ public struct OrderedDictionary<Key: Hashable, Value> {
         rebuildIndices(startingAt: index)
     }
 
+    /// Reserves enough storage to hold the requested number of pairs.
+    ///
+    /// - Complexity: O(*n*).
+    public mutating func reserveCapacity(_ minimumCapacity: Int) {
+        elements.reserveCapacity(minimumCapacity)
+        indices.reserveCapacity(minimumCapacity)
+    }
+
+    /// Removes the value for the given key, preserving the order of the rest.
+    ///
+    /// - Returns: The removed value, or `nil` if the key was not present.
+    /// - Complexity: O(*n*) because following indices are rebuilt.
     @discardableResult
-    public mutating func removeValue(for key: Key) -> Value? {
+    public mutating func removeValue(forKey key: Key) -> Value? {
         guard let index = indices.removeValue(forKey: key) else {
             return nil
         }
@@ -79,12 +173,23 @@ public struct OrderedDictionary<Key: Hashable, Value> {
         return element.value
     }
 
+    /// Removes and returns the key/value pair at the given position.
+    ///
+    /// - Complexity: O(*n*) because following indices are rebuilt.
     @discardableResult
     public mutating func remove(at index: Int) -> Element {
         let element = elements.remove(at: index)
         indices.removeValue(forKey: element.key)
         rebuildIndices(startingAt: index)
         return element
+    }
+
+    /// Removes all key/value pairs.
+    ///
+    /// - Complexity: O(*n*).
+    public mutating func removeAll(keepingCapacity keepCapacity: Bool = false) {
+        elements.removeAll(keepingCapacity: keepCapacity)
+        indices.removeAll(keepingCapacity: keepCapacity)
     }
 
     private mutating func rebuildIndices(startingAt startIndex: Int = 0) {
@@ -99,6 +204,63 @@ public struct OrderedDictionary<Key: Hashable, Value> {
 }
 
 extension OrderedDictionary: Sendable where Key: Sendable, Value: Sendable {}
+
+extension OrderedDictionary: Equatable where Value: Equatable {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        guard lhs.elements.count == rhs.elements.count else {
+            return false
+        }
+
+        for index in lhs.elements.indices {
+            let lhsElement = lhs.elements[index]
+            let rhsElement = rhs.elements[index]
+
+            guard lhsElement.key == rhsElement.key,
+                  lhsElement.value == rhsElement.value
+            else {
+                return false
+            }
+        }
+
+        return true
+    }
+}
+
+extension OrderedDictionary: Hashable where Value: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(elements.count)
+
+        for element in elements {
+            hasher.combine(element.key)
+            hasher.combine(element.value)
+        }
+    }
+}
+
+extension OrderedDictionary: CustomStringConvertible {
+    public var description: String {
+        let pairs = elements.map { "\($0.key): \($0.value)" }
+        return "[\(pairs.joined(separator: ", "))]"
+    }
+}
+
+extension OrderedDictionary: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        let pairs = elements.map { "\(String(reflecting: $0.key)): \(String(reflecting: $0.value))" }
+        return "OrderedDictionary([\(pairs.joined(separator: ", "))])"
+    }
+}
+
+extension OrderedDictionary: ExpressibleByDictionaryLiteral {
+    public init(dictionaryLiteral elements: (Key, Value)...) {
+        self.init()
+        reserveCapacity(elements.count)
+
+        for (key, value) in elements {
+            updateValue(value, forKey: key)
+        }
+    }
+}
 
 extension OrderedDictionary: RandomAccessCollection {
     public var startIndex: Int {

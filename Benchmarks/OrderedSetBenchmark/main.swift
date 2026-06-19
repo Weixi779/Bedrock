@@ -1,3 +1,10 @@
+//
+//  main.swift
+//  OrderedSetBenchmark
+//
+//  Created by weixi on 2026/6/18.
+//
+
 import Bedrock
 import Foundation
 
@@ -489,37 +496,37 @@ private struct DictionaryVoidOrderedSet<Element: Hashable> {
     }
 
     func contains(_ element: Element) -> Bool {
-        storage.contains(for: element)
+        storage.contains(key: element)
     }
 
     func index(for element: Element) -> Int? {
-        storage.index(for: element)
+        storage.index(forKey: element)
     }
 
     @discardableResult
     mutating func insert(_ element: Element) -> Bool {
-        guard !storage.contains(for: element) else {
+        guard !storage.contains(key: element) else {
             return false
         }
 
-        storage.updateValue((), for: element)
+        storage.updateValue((), forKey: element)
         return true
     }
 
     mutating func update(with element: Element) -> Element? {
-        guard let index = storage.index(for: element) else {
-            storage.updateValue((), for: element)
+        guard let index = storage.index(forKey: element) else {
+            storage.updateValue((), forKey: element)
             return nil
         }
 
         let oldElement = storage[index].key
         storage.remove(at: index)
-        storage.insert((), for: element, at: index)
+        storage.insert((), forKey: element, at: index)
         return oldElement
     }
 
     mutating func remove(_ element: Element) -> Element? {
-        guard storage.removeValue(for: element) != nil else {
+        guard storage.removeValue(forKey: element) != nil else {
             return nil
         }
 

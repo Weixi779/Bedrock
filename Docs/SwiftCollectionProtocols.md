@@ -184,7 +184,7 @@ dictionary[0] = (
 更自然的 API 应该是：
 
 ```swift
-dictionary[for: key] = value
+dictionary[key: key] = value
 dictionary.updateValue(value, for: key)
 dictionary.insert(value, for: key, at: index)
 dictionary.removeValue(for: key)
