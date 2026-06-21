@@ -10,6 +10,10 @@ Bedrock is a collection of foundational building blocks for Swift, including dat
 - `Deque`
 - `RingBuffer`
 
+## Caches
+
+- `LRUCache`
+
 ## Notes
 
 - [Swift Collection Protocols](Docs/SwiftCollectionProtocols.md)
@@ -21,3 +25,4 @@ Storage experiments live under `Benchmarks/`, with one folder per benchmark.
 - [OrderedDictionaryBenchmark](Benchmarks/OrderedDictionaryBenchmark/README.md)
 - [OrderedSetBenchmark](Benchmarks/OrderedSetBenchmark/README.md)
 - [DequeBenchmark](Benchmarks/DequeBenchmark/README.md)
+- [LRUCacheBenchmark](Benchmarks/LRUCacheBenchmark/README.md)

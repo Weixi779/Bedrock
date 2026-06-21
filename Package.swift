@@ -21,6 +21,10 @@ let package = Package(
             name: "DequeBenchmark",
             targets: ["DequeBenchmark"]
         ),
+        .executable(
+            name: "LRUCacheBenchmark",
+            targets: ["LRUCacheBenchmark"]
+        ),
     ],
     targets: [
         .target(
@@ -42,6 +46,12 @@ let package = Package(
             name: "DequeBenchmark",
             dependencies: ["Bedrock"],
             path: "Benchmarks/DequeBenchmark",
+            exclude: ["README.md"]
+        ),
+        .executableTarget(
+            name: "LRUCacheBenchmark",
+            dependencies: [],
+            path: "Benchmarks/LRUCacheBenchmark",
             exclude: ["README.md"]
         ),
         .testTarget(
