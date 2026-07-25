@@ -28,7 +28,6 @@ API surface, and not better left to application-specific policy.
 
 ### Possible Later Types
 
-- `PriorityQueue` / `Heap`
 - `Counter` / `Bag`
 - `Multimap`
 - `BiMap`

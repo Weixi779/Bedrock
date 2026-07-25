@@ -25,6 +25,10 @@ let package = Package(
             name: "LRUCacheBenchmark",
             targets: ["LRUCacheBenchmark"]
         ),
+        .executable(
+            name: "HeapBenchmark",
+            targets: ["HeapBenchmark"]
+        ),
     ],
     targets: [
         .target(
@@ -52,6 +56,12 @@ let package = Package(
             name: "LRUCacheBenchmark",
             dependencies: [],
             path: "Benchmarks/LRUCacheBenchmark",
+            exclude: ["README.md"]
+        ),
+        .executableTarget(
+            name: "HeapBenchmark",
+            dependencies: ["Bedrock"],
+            path: "Benchmarks/HeapBenchmark",
             exclude: ["README.md"]
         ),
         .testTarget(

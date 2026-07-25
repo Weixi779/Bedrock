@@ -30,6 +30,7 @@ framework.
 | `OrderedSet` | [OrderedSet.swift](Sources/Bedrock/Collections/OrderedSet.swift) | A hash-backed set that keeps members in insertion order. |
 | `Stack` | [Stack.swift](Sources/Bedrock/Collections/Stack.swift) | A small last-in, first-out collection. |
 | `Queue` | [Queue.swift](Sources/Bedrock/Collections/Queue.swift) | A first-in, first-out collection backed by two arrays. |
+| `Heap` | [Heap.swift](Sources/Bedrock/Collections/Heap.swift) | A binary heap that removes the highest-priority element efficiently. |
 | `Deque` | [Deque.swift](Sources/Bedrock/Collections/Deque.swift) | A double-ended queue backed by circular storage. |
 | `RingBuffer` | [RingBuffer.swift](Sources/Bedrock/Collections/RingBuffer.swift) | A fixed-capacity FIFO buffer that overwrites old values when full. |
 
@@ -75,6 +76,7 @@ print(cache.keys)           // ["a", "c"]
 - [OrderedSetBenchmark](Benchmarks/OrderedSetBenchmark/README.md)
 - [DequeBenchmark](Benchmarks/DequeBenchmark/README.md)
 - [LRUCacheBenchmark](Benchmarks/LRUCacheBenchmark/README.md)
+- [HeapBenchmark](Benchmarks/HeapBenchmark/README.md)
 
 ## License
 

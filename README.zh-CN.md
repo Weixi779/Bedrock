@@ -27,6 +27,7 @@ Bedrock 节省了你的时间，欢迎点一个 star。
 | `OrderedSet` | [OrderedSet.swift](Sources/Bedrock/Collections/OrderedSet.swift) | 哈希表支持的有序集合，保留成员的插入顺序。 |
 | `Stack` | [Stack.swift](Sources/Bedrock/Collections/Stack.swift) | 小型后进先出集合。 |
 | `Queue` | [Queue.swift](Sources/Bedrock/Collections/Queue.swift) | 基于两个数组实现的先进先出集合。 |
+| `Heap` | [Heap.swift](Sources/Bedrock/Collections/Heap.swift) | 高效移除最高优先级元素的二叉堆。 |
 | `Deque` | [Deque.swift](Sources/Bedrock/Collections/Deque.swift) | 基于环形存储的双端队列。 |
 | `RingBuffer` | [RingBuffer.swift](Sources/Bedrock/Collections/RingBuffer.swift) | 固定容量 FIFO buffer，满时覆盖旧值。 |
 
@@ -72,6 +73,7 @@ print(cache.keys)           // ["a", "c"]
 - [OrderedSetBenchmark](Benchmarks/OrderedSetBenchmark/README.md)
 - [DequeBenchmark](Benchmarks/DequeBenchmark/README.md)
 - [LRUCacheBenchmark](Benchmarks/LRUCacheBenchmark/README.md)
+- [HeapBenchmark](Benchmarks/HeapBenchmark/README.md)
 
 ## License
 
