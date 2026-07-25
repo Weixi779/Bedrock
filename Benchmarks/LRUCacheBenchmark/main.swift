@@ -9,8 +9,14 @@ import Foundation
 
 @main
 struct LRUCacheBenchmark {
-    static func main() {
-        let arguments = CommandLine.arguments.dropFirst()
+    static func main() throws {
+        let arguments = Array(CommandLine.arguments.dropFirst())
+
+        if arguments.first == "--trace" {
+            try benchmarkTwitterTrace(arguments: arguments.dropFirst())
+            return
+        }
+
         let capacity = arguments.first.flatMap(Int.init) ?? 256
         let operationCount = arguments.dropFirst().first.flatMap(Int.init) ?? 20_000
 
@@ -28,33 +34,89 @@ struct LRUCacheBenchmark {
             seed: 0x1A11_CAC5
         )
 
-        print("LRUCache design benchmark")
+        print("LRUCache implementation benchmark")
         print("capacity: \(capacity)")
         print("operations: \(operationCount)")
         print("")
 
         benchmarkHotHits(capacity: capacity, keys: hotKeys)
         benchmarkMixedAccess(capacity: capacity, keys: mixedKeys)
-        benchmarkSequentialInsertions(capacity: capacity, operationCount: operationCount)
+        benchmarkSequentialInsertions(
+            capacity: capacity,
+            operationCount: operationCount
+        )
+    }
+
+    private static func benchmarkTwitterTrace(
+        arguments: ArraySlice<String>
+    ) throws {
+        guard let path = arguments.first else {
+            throw BenchmarkError.missingTracePath
+        }
+
+        let capacity = arguments.dropFirst().first.flatMap(Int.init) ?? 16_384
+        let requestLimit = arguments.dropFirst(2).first.flatMap(Int.init)
+        precondition(capacity >= 0, "Capacity must not be negative")
+        if let requestLimit {
+            precondition(requestLimit >= 0, "Request limit must not be negative")
+        }
+
+        let requests = try loadTwitterCSV(
+            at: path,
+            requestLimit: requestLimit
+        )
+        guard !requests.isEmpty else {
+            throw BenchmarkError.emptyTrace
+        }
+
+        print("LRUCache Twitter trace benchmark")
+        print("trace: \(path)")
+        print("capacity: \(capacity) entries")
+        print("requests: \(requests.count)")
+        print("")
+
+        let reference = measureTrace(
+            "reference-node LRU",
+            as: LocalReferenceLRUCache<UInt64, Int>.self,
+            capacity: capacity,
+            requests: requests
+        )
+        let indexed = measureTrace(
+            "index-backed LRU",
+            as: LocalIndexedLRUCache<UInt64, Int>.self,
+            capacity: capacity,
+            requests: requests
+        )
+        _ = measureTrace(
+            "NSCache",
+            as: LocalNSCache<UInt64, Int>.self,
+            capacity: capacity,
+            requests: requests
+        )
+
+        precondition(
+            reference.statistics == indexed.statistics,
+            "Exact LRU implementations produced different trace results"
+        )
     }
 
     private static func benchmarkHotHits(capacity: Int, keys: [Int]) {
         print("Hot hit refreshes")
         runHotHits(
-            "local ordered dictionary",
-            as: LocalOrderedDictionaryLRUCache<Int, Int>.self,
+            "reference-node LRU",
+            as: LocalReferenceLRUCache<Int, Int>.self,
             capacity: capacity,
             keys: keys
         )
         runHotHits(
-            "class linked list",
-            as: ClassLinkedListLRUCache<Int, Int>.self,
+            "index-backed LRU",
+            as: LocalIndexedLRUCache<Int, Int>.self,
             capacity: capacity,
             keys: keys
         )
         runHotHits(
-            "indexed linked list",
-            as: IndexedLinkedListLRUCache<Int, Int>.self,
+            "NSCache",
+            as: LocalNSCache<Int, Int>.self,
             capacity: capacity,
             keys: keys
         )
@@ -64,20 +126,20 @@ struct LRUCacheBenchmark {
     private static func benchmarkMixedAccess(capacity: Int, keys: [Int]) {
         print("Mixed get-or-insert access")
         runMixed(
-            "local ordered dictionary",
-            as: LocalOrderedDictionaryLRUCache<Int, Int>.self,
+            "reference-node LRU",
+            as: LocalReferenceLRUCache<Int, Int>.self,
             capacity: capacity,
             keys: keys
         )
         runMixed(
-            "class linked list",
-            as: ClassLinkedListLRUCache<Int, Int>.self,
+            "index-backed LRU",
+            as: LocalIndexedLRUCache<Int, Int>.self,
             capacity: capacity,
             keys: keys
         )
         runMixed(
-            "indexed linked list",
-            as: IndexedLinkedListLRUCache<Int, Int>.self,
+            "NSCache",
+            as: LocalNSCache<Int, Int>.self,
             capacity: capacity,
             keys: keys
         )
@@ -90,28 +152,27 @@ struct LRUCacheBenchmark {
     ) {
         print("Sequential insertions with eviction")
         runSequential(
-            "local ordered dictionary",
-            as: LocalOrderedDictionaryLRUCache<Int, Int>.self,
+            "reference-node LRU",
+            as: LocalReferenceLRUCache<Int, Int>.self,
             capacity: capacity,
             operationCount: operationCount
         )
         runSequential(
-            "class linked list",
-            as: ClassLinkedListLRUCache<Int, Int>.self,
+            "index-backed LRU",
+            as: LocalIndexedLRUCache<Int, Int>.self,
             capacity: capacity,
             operationCount: operationCount
         )
         runSequential(
-            "indexed linked list",
-            as: IndexedLinkedListLRUCache<Int, Int>.self,
+            "NSCache",
+            as: LocalNSCache<Int, Int>.self,
             capacity: capacity,
             operationCount: operationCount
         )
         print("")
     }
 
-    /// Times only the hot-read loop; the cache is created and prefilled in the
-    /// untimed `setup` step.
+    /// Times only the hot-read loop; cache creation and prefill are untimed.
     private static func runHotHits<Cache: LRUCacheCandidate>(
         _ label: String,
         as type: Cache.Type,
@@ -127,12 +188,11 @@ struct LRUCacheBenchmark {
             for key in keys {
                 checksum &+= cache.value(for: key) ?? 0
             }
-            return checksum &+ cache.count
+            return checksum
         }
     }
 
-    /// Times only the get-or-insert loop; prefill happens in the untimed
-    /// `setup` step.
+    /// Times only the get-or-insert loop; prefill is untimed.
     private static func runMixed<Cache: LRUCacheCandidate>(
         _ label: String,
         as type: Cache.Type,
@@ -153,12 +213,11 @@ struct LRUCacheBenchmark {
                     checksum &-= key
                 }
             }
-            return checksum &+ cache.count
+            return checksum
         }
     }
 
-    /// Times only the insertion loop; the empty cache is created in the untimed
-    /// `setup` step.
+    /// Times only the insertion loop; cache creation is untimed.
     private static func runSequential<Cache: LRUCacheCandidate>(
         _ label: String,
         as type: Cache.Type,
@@ -171,7 +230,11 @@ struct LRUCacheBenchmark {
             for key in 0..<operationCount {
                 cache.setValue(key, for: key)
             }
-            return cache.count
+
+            guard operationCount > 0 else {
+                return 0
+            }
+            return cache.value(for: operationCount - 1) ?? 0
         }
     }
 
@@ -214,6 +277,54 @@ struct LRUCacheBenchmark {
         )
     }
 
+    private static func measureTrace<Cache: LRUCacheCandidate>(
+        _ label: String,
+        as type: Cache.Type,
+        capacity: Int,
+        requests: [TraceRequest],
+        iterations: Int = 3
+    ) -> TraceMeasurement where Cache.Key == UInt64, Cache.Value == Int {
+        var best = TraceMeasurement(
+            nanoseconds: UInt64.max,
+            statistics: TraceStatistics()
+        )
+
+        for _ in 0..<iterations {
+            var cache = Cache(capacity: capacity)
+            var statistics = TraceStatistics()
+            let start = DispatchTime.now().uptimeNanoseconds
+
+            for request in requests {
+                if let value = cache.value(for: request.objectID) {
+                    statistics.hits &+= 1
+                    statistics.checksum &+= value
+                } else {
+                    statistics.misses &+= 1
+                    statistics.checksum &-= request.objectSize
+                    cache.setValue(request.objectSize, for: request.objectID)
+                }
+            }
+
+            let elapsed = DispatchTime.now().uptimeNanoseconds - start
+            if elapsed < best.nanoseconds {
+                best = TraceMeasurement(
+                    nanoseconds: elapsed,
+                    statistics: statistics
+                )
+            }
+        }
+
+        let nsPerRequest = Double(best.nanoseconds) / Double(requests.count)
+        let hitRate = Double(best.statistics.hits) / Double(requests.count)
+        print(
+            "  \(label): \(milliseconds(best.nanoseconds)) best of " +
+            "\(iterations), \(String(format: "%.1f", nsPerRequest)) ns/req, " +
+            "hit rate \(String(format: "%.2f%%", hitRate * 100)) " +
+            "(checksum: \(best.statistics.checksum))"
+        )
+        return best
+    }
+
     private static func milliseconds(_ nanoseconds: UInt64) -> String {
         let whole = nanoseconds / 1_000_000
         let fraction = (nanoseconds % 1_000_000) / 1_000
@@ -237,6 +348,129 @@ struct LRUCacheBenchmark {
             Int(generator.next() % UInt64(keySpace))
         }
     }
+
+    private static func loadTwitterCSV(
+        at path: String,
+        requestLimit: Int?
+    ) throws -> [TraceRequest] {
+        let data = try Data(
+            contentsOf: URL(fileURLWithPath: path),
+            options: .mappedIfSafe
+        )
+        let estimatedCount = data.count / 36
+        var requests: [TraceRequest] = []
+        requests.reserveCapacity(min(requestLimit ?? estimatedCount, estimatedCount))
+
+        data.withUnsafeBytes { rawBuffer in
+            let bytes = rawBuffer.bindMemory(to: UInt8.self)
+            var column = 0
+            var number: UInt64 = 0
+            var objectID: UInt64 = 0
+            var objectSize: UInt64 = 0
+            var hasObjectID = false
+            var hasObjectSize = false
+            var skipLine = false
+            var atLineStart = true
+
+            for byte in bytes {
+                if skipLine {
+                    if byte == 10 {
+                        skipLine = false
+                        atLineStart = true
+                    }
+                    continue
+                }
+
+                if atLineStart, byte == 35 {
+                    skipLine = true
+                    continue
+                }
+                atLineStart = false
+
+                switch byte {
+                case 48...57 where column <= 2:
+                    number = number &* 10 &+ UInt64(byte - 48)
+                case 44:
+                    if column == 1 {
+                        objectID = number
+                        hasObjectID = true
+                    } else if column == 2 {
+                        objectSize = number
+                        hasObjectSize = true
+                    }
+                    column &+= 1
+                    number = 0
+                case 10:
+                    if hasObjectID, hasObjectSize {
+                        requests.append(
+                            TraceRequest(
+                                objectID: objectID,
+                                objectSize: Int(objectSize)
+                            )
+                        )
+                    }
+
+                    if let requestLimit, requests.count >= requestLimit {
+                        return
+                    }
+
+                    column = 0
+                    number = 0
+                    objectID = 0
+                    objectSize = 0
+                    hasObjectID = false
+                    hasObjectSize = false
+                    atLineStart = true
+                default:
+                    break
+                }
+            }
+
+            if hasObjectID, hasObjectSize,
+               requestLimit.map({ requests.count < $0 }) ?? true
+            {
+                requests.append(
+                    TraceRequest(
+                        objectID: objectID,
+                        objectSize: Int(objectSize)
+                    )
+                )
+            }
+        }
+
+        return requests
+    }
+}
+
+private enum BenchmarkError: Error, CustomStringConvertible {
+    case missingTracePath
+    case emptyTrace
+
+    var description: String {
+        switch self {
+        case .missingTracePath:
+            return "Usage: LRUCacheBenchmark --trace <csv-path> " +
+                "[capacity] [request-limit]"
+        case .emptyTrace:
+            return "The trace did not contain any requests"
+        }
+    }
+}
+
+private struct TraceRequest {
+    let objectID: UInt64
+    let objectSize: Int
+}
+
+private struct TraceStatistics: Equatable {
+    var hits = 0
+    var misses = 0
+    var checksum = 0
+}
+
+private struct TraceMeasurement {
+    let nanoseconds: UInt64
+    let statistics: TraceStatistics
 }
 
 private protocol LRUCacheCandidate {
@@ -245,140 +479,28 @@ private protocol LRUCacheCandidate {
 
     init(capacity: Int)
 
-    var count: Int { get }
-
     mutating func value(for key: Key) -> Value?
     mutating func setValue(_ value: Value, for key: Key)
 }
 
-private struct LocalOrderedDictionaryLRUCache<Key: Hashable, Value>: LRUCacheCandidate {
+/// Mirrors Bedrock's `ReferenceLRUCache` in this compilation unit so the
+/// benchmark does not include module-boundary effects.
+private final class LocalReferenceLRUCache<Key: Hashable, Value>:
+    LRUCacheCandidate
+{
     private let capacity: Int
-    private var storage: BenchmarkOrderedDictionary<Key, Value>
-
-    var count: Int {
-        storage.count
-    }
+    private var nodes: [Key: ReferenceNode<Key, Value>] = [:]
+    private var head: ReferenceNode<Key, Value>?
+    private var tail: ReferenceNode<Key, Value>?
 
     init(capacity: Int) {
         precondition(capacity >= 0, "Capacity must not be negative")
 
         self.capacity = capacity
-        self.storage = BenchmarkOrderedDictionary()
-        self.storage.reserveCapacity(capacity)
+        nodes.reserveCapacity(capacity)
     }
 
-    mutating func value(for key: Key) -> Value? {
-        guard let value = storage[key: key] else {
-            return nil
-        }
-
-        storage.removeValue(forKey: key)
-        storage.updateValue(value, forKey: key)
-        return value
-    }
-
-    mutating func setValue(_ value: Value, for key: Key) {
-        guard capacity > 0 else {
-            return
-        }
-
-        if storage.contains(key: key) {
-            storage.removeValue(forKey: key)
-            storage.updateValue(value, forKey: key)
-            return
-        }
-
-        if storage.count == capacity {
-            storage.remove(at: 0)
-        }
-
-        storage.updateValue(value, forKey: key)
-    }
-}
-
-private struct BenchmarkOrderedDictionary<Key: Hashable, Value> {
-    private typealias Element = (key: Key, value: Value)
-
-    private var elements: [Element] = []
-    private var indices: [Key: Int] = [:]
-
-    var count: Int {
-        elements.count
-    }
-
-    subscript(key key: Key) -> Value? {
-        guard let index = indices[key] else {
-            return nil
-        }
-
-        return elements[index].value
-    }
-
-    func contains(key: Key) -> Bool {
-        indices[key] != nil
-    }
-
-    mutating func reserveCapacity(_ minimumCapacity: Int) {
-        elements.reserveCapacity(minimumCapacity)
-        indices.reserveCapacity(minimumCapacity)
-    }
-
-    mutating func updateValue(_ value: Value, forKey key: Key) {
-        if let index = indices[key] {
-            elements[index].value = value
-            return
-        }
-
-        indices[key] = elements.count
-        elements.append((key: key, value: value))
-    }
-
-    @discardableResult
-    mutating func removeValue(forKey key: Key) -> Value? {
-        guard let index = indices.removeValue(forKey: key) else {
-            return nil
-        }
-
-        let element = elements.remove(at: index)
-        rebuildIndices(startingAt: index)
-        return element.value
-    }
-
-    mutating func remove(at index: Int) {
-        let element = elements.remove(at: index)
-        indices.removeValue(forKey: element.key)
-        rebuildIndices(startingAt: index)
-    }
-
-    private mutating func rebuildIndices(startingAt startIndex: Int) {
-        guard startIndex < elements.count else {
-            return
-        }
-
-        for index in startIndex..<elements.count {
-            indices[elements[index].key] = index
-        }
-    }
-}
-
-private struct ClassLinkedListLRUCache<Key: Hashable, Value>: LRUCacheCandidate {
-    private let capacity: Int
-    private var nodes: [Key: ClassLinkedNode<Key, Value>] = [:]
-    private var head: ClassLinkedNode<Key, Value>?
-    private var tail: ClassLinkedNode<Key, Value>?
-
-    var count: Int {
-        nodes.count
-    }
-
-    init(capacity: Int) {
-        precondition(capacity >= 0, "Capacity must not be negative")
-
-        self.capacity = capacity
-        self.nodes.reserveCapacity(capacity)
-    }
-
-    mutating func value(for key: Key) -> Value? {
+    func value(for key: Key) -> Value? {
         guard let node = nodes[key] else {
             return nil
         }
@@ -387,7 +509,7 @@ private struct ClassLinkedListLRUCache<Key: Hashable, Value>: LRUCacheCandidate 
         return node.value
     }
 
-    mutating func setValue(_ value: Value, for key: Key) {
+    func setValue(_ value: Value, for key: Key) {
         guard capacity > 0 else {
             return
         }
@@ -399,25 +521,25 @@ private struct ClassLinkedListLRUCache<Key: Hashable, Value>: LRUCacheCandidate 
         }
 
         if nodes.count == capacity, let oldest = head {
-            remove(oldest)
+            unlink(oldest)
             nodes.removeValue(forKey: oldest.key)
         }
 
-        let node = ClassLinkedNode(key: key, value: value)
+        let node = ReferenceNode(key: key, value: value)
         append(node)
         nodes[key] = node
     }
 
-    private mutating func moveToBack(_ node: ClassLinkedNode<Key, Value>) {
+    private func moveToBack(_ node: ReferenceNode<Key, Value>) {
         guard tail !== node else {
             return
         }
 
-        remove(node)
+        unlink(node)
         append(node)
     }
 
-    private mutating func append(_ node: ClassLinkedNode<Key, Value>) {
+    private func append(_ node: ReferenceNode<Key, Value>) {
         node.previous = tail
         node.next = nil
 
@@ -430,7 +552,7 @@ private struct ClassLinkedListLRUCache<Key: Hashable, Value>: LRUCacheCandidate 
         tail = node
     }
 
-    private mutating func remove(_ node: ClassLinkedNode<Key, Value>) {
+    private func unlink(_ node: ReferenceNode<Key, Value>) {
         let previous = node.previous
         let next = node.next
 
@@ -451,11 +573,11 @@ private struct ClassLinkedListLRUCache<Key: Hashable, Value>: LRUCacheCandidate 
     }
 }
 
-private final class ClassLinkedNode<Key: Hashable, Value> {
+private final class ReferenceNode<Key: Hashable, Value> {
     let key: Key
     var value: Value
-    weak var previous: ClassLinkedNode?
-    var next: ClassLinkedNode?
+    weak var previous: ReferenceNode?
+    var next: ReferenceNode?
 
     init(key: Key, value: Value) {
         self.key = key
@@ -463,25 +585,23 @@ private final class ClassLinkedNode<Key: Hashable, Value> {
     }
 }
 
-private struct IndexedLinkedListLRUCache<Key: Hashable, Value>: LRUCacheCandidate {
+/// Mirrors Bedrock's `LRUCache` in this compilation unit so the benchmark does
+/// not include module-boundary effects.
+private struct LocalIndexedLRUCache<Key: Hashable, Value>: LRUCacheCandidate {
     private let capacity: Int
     private var indices: [Key: Int] = [:]
-    private var nodes: [IndexedLinkedNode<Key, Value>?] = []
+    private var nodes: [IndexedNode<Key, Value>?] = []
     private var freeList: [Int] = []
     private var head: Int?
     private var tail: Int?
-
-    var count: Int {
-        indices.count
-    }
 
     init(capacity: Int) {
         precondition(capacity >= 0, "Capacity must not be negative")
 
         self.capacity = capacity
-        self.indices.reserveCapacity(capacity)
-        self.nodes.reserveCapacity(capacity)
-        self.freeList.reserveCapacity(capacity)
+        indices.reserveCapacity(capacity)
+        nodes.reserveCapacity(capacity)
+        freeList.reserveCapacity(capacity)
     }
 
     mutating func value(for key: Key) -> Value? {
@@ -516,7 +636,7 @@ private struct IndexedLinkedListLRUCache<Key: Hashable, Value>: LRUCacheCandidat
     }
 
     private mutating func allocateNode(key: Key, value: Value) -> Int {
-        let node = IndexedLinkedNode<Key, Value>(
+        let node = IndexedNode(
             key: key,
             value: value,
             previous: nil,
@@ -581,11 +701,68 @@ private struct IndexedLinkedListLRUCache<Key: Hashable, Value>: LRUCacheCandidat
     }
 }
 
-private struct IndexedLinkedNode<Key: Hashable, Value> {
+private struct IndexedNode<Key: Hashable, Value> {
     let key: Key
     var value: Value
     var previous: Int?
     var next: Int?
+}
+
+/// Adapts generic Swift keys and values to `NSCache`'s object-only API.
+///
+/// `NSCache.countLimit` is not a strict capacity guarantee and its eviction
+/// order is intentionally unspecified. This candidate is therefore a
+/// performance baseline, not an exact semantic substitute for the LRU types.
+private final class LocalNSCache<Key: Hashable, Value>: LRUCacheCandidate {
+    private let capacity: Int
+    private let storage = NSCache<NSCacheKey<Key>, NSCacheValue<Value>>()
+
+    init(capacity: Int) {
+        precondition(capacity >= 0, "Capacity must not be negative")
+
+        self.capacity = capacity
+        storage.countLimit = capacity
+    }
+
+    func value(for key: Key) -> Value? {
+        storage.object(forKey: NSCacheKey(key))?.value
+    }
+
+    func setValue(_ value: Value, for key: Key) {
+        guard capacity > 0 else {
+            return
+        }
+
+        storage.setObject(NSCacheValue(value), forKey: NSCacheKey(key))
+    }
+}
+
+private final class NSCacheKey<Key: Hashable>: NSObject {
+    let value: Key
+
+    init(_ value: Key) {
+        self.value = value
+    }
+
+    override var hash: Int {
+        value.hashValue
+    }
+
+    override func isEqual(_ object: Any?) -> Bool {
+        guard let other = object as? NSCacheKey else {
+            return false
+        }
+
+        return value == other.value
+    }
+}
+
+private final class NSCacheValue<Value>: NSObject {
+    let value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
 }
 
 private struct SeededGenerator: RandomNumberGenerator {
