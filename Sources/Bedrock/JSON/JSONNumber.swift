@@ -3,9 +3,10 @@ import Foundation
 
 /// A JSON number with a practical numeric representation and an optional original spelling.
 ///
-/// Foundation Codable uses Decimal first, then finite Double. It cannot expose the
-/// input token. `init(rawValue:)` preserves explicitly supplied text, including values
-/// outside those types. Such text-only values require a custom encoder.
+/// Foundation Codable uses Decimal first, then finite Double. The supplemental
+/// `decodePreservingNumberText` entry point can retain input tokens alongside those
+/// values. `init(rawValue:)` also accepts explicit numeric text. Text-only values
+/// outside the supported numeric representations require a custom encoder.
 public struct JSONNumber: Sendable {
     private enum Storage: Sendable {
         case decimal(Decimal)
@@ -15,7 +16,8 @@ public struct JSONNumber: Sendable {
 
     private let storage: Storage
 
-    /// The exact text supplied to `init(rawValue:)`; nil for numeric and Codable inputs.
+    /// Explicit input text or text captured by `decodePreservingNumberText`.
+    /// Nil when the input spelling is unavailable or cannot be located unambiguously.
     public let originalText: String?
 
     public enum ValidationError: Error, Equatable, Sendable {
@@ -89,14 +91,22 @@ public struct JSONNumber: Sendable {
     /// Allows floating-point rounding. Returns nil for overflow or nonzero underflow.
     /// Reading a rounded Double never changes the stored value or original text.
     public var doubleValue: Double? {
-        guard let result = Double(description), result.isFinite else { return nil }
-        if result == 0, JSONNumberText(description)?.isZero != true { return nil }
+        guard let result = Double(storedText), result.isFinite else { return nil }
+        if result == 0, JSONNumberText(storedText)?.isZero != true { return nil }
         return result
     }
 
     private var numericText: JSONNumberText? {
         guard isCodableNumber else { return nil }
-        return JSONNumberText(description)
+        return JSONNumberText(storedText)
+    }
+
+    private var storedText: String {
+        switch storage {
+        case .decimal(let value): return value.description
+        case .double(let value): return String(value)
+        case .textOnly(let text): return text
+        }
     }
 }
 
@@ -104,11 +114,7 @@ extension JSONNumber: CustomStringConvertible {
     /// Original text when available; otherwise the stored number's decimal spelling.
     public var description: String {
         if let originalText { return originalText }
-        switch storage {
-        case .decimal(let value): return value.description
-        case .double(let value): return String(value)
-        case .textOnly(let text): return text
-        }
+        return storedText
     }
 }
 
@@ -127,17 +133,21 @@ extension JSONNumber: Equatable {
 extension JSONNumber: Codable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.singleValueContainer()
+        let source = decoder.userInfo[JSONNumberSource.userInfoKey] as? JSONNumberSource
+        originalText = source?.number(at: decoder.codingPath)
         if let value = try? container.decode(Decimal.self), !value.isNaN {
             storage = .decimal(value)
         } else if let value = try? container.decode(Double.self), value.isFinite, value != 0 {
             // A zero after Decimal failed may be a nonzero input underflowing in Double.
             storage = .double(value)
+        } else if let originalText {
+            // The locator validated this token; unsupported numbers remain text-only.
+            storage = Self.representation(of: originalText, text: JSONNumberText(originalText)!)
         } else {
             throw DecodingError.dataCorruptedError(
                 in: container, debugDescription: "JSON number is outside the supported numeric range. Use an explicit text input for custom handling."
             )
         }
-        originalText = nil
     }
 
     public func encode(to encoder: any Encoder) throws {

@@ -48,7 +48,10 @@ framework.
 | `JSONNumber` | [JSONNumber.swift](Sources/Bedrock/JSON/JSONNumber.swift) | Decimal/Double numeric storage with an explicit original-text escape hatch. |
 
 See [JSON values and numeric boundaries](Docs/JSONValue.md) for usage and guarantees.
-System Codable does not preserve original number spellings or arbitrary precision.
+Use `decodePreservingNumberText` to capture numeric spellings when reliably
+locatable, while keeping Foundation Codable models and normal numeric encoding.
+Ordinary system decoding does not capture original text; neither path provides
+arbitrary-precision arithmetic or lossless default encoding.
 When copying this feature, include all files in `Sources/Bedrock/JSON`.
 
 ## Examples
@@ -83,7 +86,7 @@ struct Page: Codable {
 }
 
 let responseData = Data(#"{"items":["first"],"nextCursor":{"id":9007199254740993}}"#.utf8)
-let page = try JSONDecoder().decode(Page.self, from: responseData)
+let page = try JSONDecoder().decodePreservingNumberText(Page.self, from: responseData)
 let requestData = try JSONEncoder().encode(["cursor": page.nextCursor])
 ```
 
@@ -99,6 +102,7 @@ let requestData = try JSONEncoder().encode(["cursor": page.nextCursor])
 - [DequeBenchmark](Benchmarks/DequeBenchmark/README.md)
 - [LRUCacheBenchmark](Benchmarks/LRUCacheBenchmark/README.md)
 - [HeapBenchmark](Benchmarks/HeapBenchmark/README.md)
+- [JSONNumberTextBenchmark](Benchmarks/JSONNumberTextBenchmark/README.md)
 
 ## License
 

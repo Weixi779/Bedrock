@@ -2,7 +2,8 @@
 
 `JSONValue` stores the six JSON kinds and supports `Equatable`, `Sendable`, and
 system `Codable`. It is intended for dynamic fields such as pagination cursors.
-It does not implement a JSON parser, encoder, or arbitrary-precision arithmetic.
+It uses Foundation for JSON validation and model decoding, with an optional
+lazy numeric-token locator. It supplies no custom encoder or arbitrary-precision arithmetic.
 
 ```swift
 import Foundation
@@ -37,7 +38,8 @@ integers; other values use their shortest round-trip text. It does not call
 `Decimal(Double)`. Thus constructing from `19.99` agrees with decoding JSON
 `19.99` on the tested Foundation implementation.
 
-`int64Value` and `uint64Value` return exact integer values or nil. Integral
+`int64Value` and `uint64Value` return exact integers from the stored numeric
+representation or nil; they do not reconstruct a value from captured original text. Integral
 decimal and exponent forms are accepted (`1.0` and `1e2` become 1 and 100).
 `decimalValue` requires a matching decimal identity. `doubleValue` allows
 rounding but rejects infinity and nonzero underflow. For example, converting
@@ -67,6 +69,64 @@ model, and a nested type mismatch with its original coding path. Captured JSON
 values retain the numeric limitations below; keep the response Data separately
 if exact original bytes are needed.
 
+## Capturing original numbers in Codable models
+
+Use the existing JSONDecoder's supplemental entry point:
+
+```swift
+let decoder = JSONDecoder()
+let page = try decoder.decodePreservingNumberText(Page.self, from: responseData)
+```
+
+No property annotation or field configuration is required. Existing Codable
+models, nested arrays, dictionaries, and forwarding property wrappers continue
+to use Foundation. Ordinary `decoder.decode` remains available with its existing
+behavior and no original-text capture.
+
+The entry point copies standard decoder settings and userInfo into a per-call
+Foundation decoder; it does not mutate the caller's decoder. Do not change the
+caller's settings concurrently with decoding. Custom JSONDecoder subclasses are
+decoded through their own overrides without capture.
+
+The first JSONNumber lazily prepares a source locator. It indexes containers
+along codingPath, skips unrelated value bytes, and caches those container indexes.
+Models containing only ordinary numeric Swift fields do not trigger this work.
+The source context is scoped to a decode and is not retained by resulting numbers.
+
+Capture supports UTF-8 JSON (including its BOM), default keys, and unambiguous
+snake-case key conversion. Original text remains **optional**:
+
+- Ambiguous paths, duplicate or Unicode-equivalent keys decline capture. A model
+  and a dictionary may interpret the same codingPath differently after key conversion.
+- Custom key strategies, JSON5, unbraced top-level dictionaries, non-UTF-8 input,
+  and paths deeper than 128 components use ordinary decoding without capture.
+- If a Foundation version rejects input before reaching JSONNumber, this entry
+  point does not bypass that rejection.
+
+If text is unavailable, normal numeric decoding still runs. If numeric decoding
+fails but a valid original token is available, JSONNumber retains it as a text-only
+value; normal encoding of that value fails explicitly. No raw-number output hook
+is added to JSONEncoder.
+
+Captured text never changes numeric equality, getters or default encoding. A long
+number may have a rounded stored Decimal **and** an exact `originalText`:
+
+```swift
+let input = Data("0.1234567890123456789012345678901234567890123456789".utf8)
+let number = try decoder.decodePreservingNumberText(JSONNumber.self, from: input)
+let original = number.originalText  // Exact token, when capture succeeds.
+let decimal = number.decimalValue  // Foundation's numeric representation.
+let output = try JSONEncoder().encode(number) // Encodes the stored number.
+```
+
+Use originalText explicitly when a custom consumer needs the original precision.
+This is not byte-for-byte JSON round-tripping. Data already converted by
+JSONSerialization/ObjectMapper into Any has no recoverable original spelling;
+`JSONValue(validating:)` only validates the values it receives.
+
+See [original-text tests](../Tests/BedrockTests/JSON/JSONOriginalTextTests.swift)
+and the [reproducible benchmark](../Benchmarks/JSONNumberTextBenchmark/README.md).
+
 ## Explicit numeric text
 
 ```swift
@@ -89,8 +149,9 @@ succeed. An application with a custom JSON writer can retrieve `originalText` an
 emit that validated token as a number. Bedrock supplies no raw-token hook into
 Foundation JSONEncoder.
 
-`originalText` is nil for numeric constructors and system decoding. The standard
-Decoder protocol does not expose the original token. `description` returns the
+`originalText` is nil for numeric constructors and ordinary system decoding.
+The supplemental entry point above can capture it from the original Data; the
+standard Decoder protocol itself does not expose the token. `description` returns the
 original text when present, or a generated numeric spelling otherwise; it must
 not be treated as evidence of what the server sent. When copying this feature,
 copy all files in `Sources/Bedrock/JSON`, not just JSONValue.swift.
@@ -121,19 +182,19 @@ equality reflexive, symmetric, and transitive. Hashable is not part of this API.
 Foundation may change number spellings (`1.00` to `1`), object order, whitespace,
 and string escapes. It may round long numeric tokens before `JSONNumber` receives
 them; successful decoding is not proof of exact preservation of the server's
-number. The original digits cannot be recovered afterward. Decimal acceptance
+number. Without original-text capture, lost digits cannot be recovered afterward. Decimal acceptance
 also depends on extreme exponent spelling and the Foundation version.
 
-For custom high-precision handling, intercept the original JSON outside system
-decoding and construct `JSONNumber(rawValue:)`. A text-only value cannot round-trip
+For custom high-precision handling, use captured `originalText` when available,
+or construct `JSONNumber(rawValue:)` from independently obtained numeric text. A text-only value cannot round-trip
 through the default encoder: it fails explicitly, including its coding path.
 
 Object dictionaries bypass Foundation's model key conversion strategies, so a
 cursor's `some_key` remains `some_key` even if its enclosing model uses
 `convertFromSnakeCase`. Duplicate keys and Unicode-equivalent keys have the
 underlying Foundation/Swift dictionary behavior; this type cannot preserve
-multiple entries for such keys. Decoding resource limits belong to the chosen
-decoder. No new parser or format-wide strategy configuration is added.
+multiple entries for such keys. Foundation remains responsible for JSON validation and its decoding resource
+limits. The supplemental locator has a separate 128-component path limit.
 
 ## Implementation references and verification
 
@@ -147,6 +208,7 @@ not adopted wholesale.
 
 Tests cover explicit syntax validation, unsupported text preservation, numeric
 limits, errors with paths, Foundation value bridging, model key strategies,
-equality laws, generic response envelopes, and generated integer/decimal round trips. Initial runtime
+equality laws, generic response envelopes, original-text capture and fallbacks,
+concurrent calls, and generated integer/decimal round trips. Runtime
 verification is on Apple Swift 6.4, macOS 27.0.1, arm64. This does not certify
 other Foundation versions, iOS runtimes, or Linux behavior.

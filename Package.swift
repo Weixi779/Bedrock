@@ -29,6 +29,10 @@ let package = Package(
             name: "HeapBenchmark",
             targets: ["HeapBenchmark"]
         ),
+        .executable(
+            name: "JSONNumberTextBenchmark",
+            targets: ["JSONNumberTextBenchmark"]
+        ),
     ],
     targets: [
         .target(
@@ -62,6 +66,12 @@ let package = Package(
             name: "HeapBenchmark",
             dependencies: ["Bedrock"],
             path: "Benchmarks/HeapBenchmark",
+            exclude: ["README.md"]
+        ),
+        .executableTarget(
+            name: "JSONNumberTextBenchmark",
+            dependencies: ["Bedrock"],
+            path: "Benchmarks/JSONNumberTextBenchmark",
             exclude: ["README.md"]
         ),
         .testTarget(
