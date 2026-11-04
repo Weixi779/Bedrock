@@ -11,7 +11,7 @@ Bedrock 是一组常见 Swift 数据结构和轻量数据模型。它更像项�
 foundation code：简单、可读、方便复制、方便按需调整，也方便测试。
 
 这个仓库支持通过 SwiftPM 使用，但这不是重点。如果你只需要其中一个类型，
-可以直接把对应的单个源码文件复制到自己的项目里，再按业务需求调整。如果
+可以直接把对应的源码文件复制到自己的项目里，再按业务需求调整。如果
 Bedrock 节省了你的时间，欢迎点一个 star。
 
 部分实现来自 `Benchmarks/` 里的 benchmark 实验。这些 benchmark 更像设计
@@ -37,6 +37,16 @@ Bedrock 节省了你的时间，欢迎点一个 star。
 | --- | --- | --- |
 | `LRUCache` | [LRUCache.swift](Sources/Bedrock/Caches/LRUCache.swift) | 固定容量的 least-recently-used cache。 |
 
+### JSON
+
+| Type | Source | Summary |
+| --- | --- | --- |
+| `JSONValue` | [JSONValue.swift](Sources/Bedrock/JSON/JSONValue.swift) | 支持结构相等比较与系统 Codable 的动态 JSON 值。 |
+| `JSONNumber` | [JSONNumber.swift](Sources/Bedrock/JSON/JSONNumber.swift) | 使用 Decimal／Double 表示常用数值，并提供显式保留数字原文的入口。 |
+
+用法、相等规则与精度限制见 [JSONValue 文档](Docs/JSONValue.md)。系统 Codable 不保证数字原始写法或任意精度；显式文本入口可以保留超出默认数值范围的合法数字，无法通过系统数值编码时明确报错。
+复制此功能时，请包含 `Sources/Bedrock/JSON` 下的全部文件。
+
 ## 示例
 
 ```swift
@@ -60,6 +70,17 @@ cache.value(forKey: "a")
 cache.updateValue(3, forKey: "c")
 
 print(cache.keys)           // ["a", "c"]
+```
+
+```swift
+struct Page: Codable {
+    let items: [String]
+    let nextCursor: JSONValue
+}
+
+let responseData = Data(#"{"items":["first"],"nextCursor":{"id":9007199254740993}}"#.utf8)
+let page = try JSONDecoder().decode(Page.self, from: responseData)
+let requestData = try JSONEncoder().encode(["cursor": page.nextCursor])
 ```
 
 ## 文档

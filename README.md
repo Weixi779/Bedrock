@@ -12,7 +12,7 @@ data models. It is written as project-level foundation code: simple enough to
 read, copy, adapt, and test.
 
 The package is available through SwiftPM, but importing the whole package is not
-the main point. If one type is useful, feel free to copy that single source file
+the main point. If one type is useful, feel free to copy its source files
 into your project and adjust it for your own needs. If Bedrock saves you time,
 a star is appreciated.
 
@@ -40,6 +40,17 @@ framework.
 | --- | --- | --- |
 | `LRUCache` | [LRUCache.swift](Sources/Bedrock/Caches/LRUCache.swift) | A fixed-capacity least-recently-used cache. |
 
+### JSON
+
+| Type | Source | Summary |
+| --- | --- | --- |
+| `JSONValue` | [JSONValue.swift](Sources/Bedrock/JSON/JSONValue.swift) | A dynamic JSON value with structural equality and system Codable support. |
+| `JSONNumber` | [JSONNumber.swift](Sources/Bedrock/JSON/JSONNumber.swift) | Decimal/Double numeric storage with an explicit original-text escape hatch. |
+
+See [JSON values and numeric boundaries](Docs/JSONValue.md) for usage and guarantees.
+System Codable does not preserve original number spellings or arbitrary precision.
+When copying this feature, include all files in `Sources/Bedrock/JSON`.
+
 ## Examples
 
 ```swift
@@ -63,6 +74,17 @@ cache.value(forKey: "a")
 cache.updateValue(3, forKey: "c")
 
 print(cache.keys)           // ["a", "c"]
+```
+
+```swift
+struct Page: Codable {
+    let items: [String]
+    let nextCursor: JSONValue
+}
+
+let responseData = Data(#"{"items":["first"],"nextCursor":{"id":9007199254740993}}"#.utf8)
+let page = try JSONDecoder().decode(Page.self, from: responseData)
+let requestData = try JSONEncoder().encode(["cursor": page.nextCursor])
 ```
 
 ## Notes
