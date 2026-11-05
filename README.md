@@ -44,8 +44,8 @@ framework.
 
 | Type | Source | Summary |
 | --- | --- | --- |
-| `JSONValue` | [JSONValue.swift](Sources/Bedrock/JSON/JSONValue.swift) | A dynamic JSON value with structural equality and system Codable support. |
-| `JSONNumber` | [JSONNumber.swift](Sources/Bedrock/JSON/JSONNumber.swift) | Decimal/Double numeric storage with an explicit original-text escape hatch. |
+| `JSONValue` | [JSONValue.swift](Sources/Bedrock/JSON/JSONValue.swift) | A Hashable dynamic JSON value with structural equality and system Codable support. |
+| `JSONNumber` | [JSONNumber.swift](Sources/Bedrock/JSON/JSONNumber.swift) | Hashable Decimal/Double numeric storage with an explicit original-text escape hatch. |
 
 See [JSON values and numeric boundaries](Docs/JSONValue.md) for usage and guarantees.
 Use `decodePreservingNumberText` to capture numeric spellings when reliably

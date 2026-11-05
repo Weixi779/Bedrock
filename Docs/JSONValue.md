@@ -1,6 +1,6 @@
 # JSONValue
 
-`JSONValue` stores the six JSON kinds and supports `Equatable`, `Sendable`, and
+`JSONValue` stores the six JSON kinds and supports `Hashable` (including `Equatable`), `Sendable`, and
 system `Codable`. It is intended for dynamic fields such as pagination cursors.
 It uses Foundation for JSON validation and model decoding, with an optional
 lazy numeric-token locator. It supplies no custom encoder or arbitrary-precision arithmetic.
@@ -9,7 +9,7 @@ lazy numeric-token locator. It supplies no custom encoder or arbitrary-precision
 import Foundation
 import Bedrock
 
-struct Page: Codable, Equatable {
+struct Page: Codable, Hashable {
     let cursor: JSONValue?
 }
 
@@ -175,7 +175,32 @@ copy all files in `Sources/Bedrock/JSON`, not just JSONValue.swift.
 
 The last rule is deliberately separate: comparison never switches between text
 and a rounded numeric approximation depending on the other operand. This keeps
-equality reflexive, symmetric, and transitive. Hashable is not part of this API.
+equality reflexive, symmetric, and transitive.
+
+## Hashing and Pager deduplication
+
+JSONValue and JSONNumber conform to Hashable. Hashing follows the equality rules
+above: numeric representations use their normalized stored numeric identity,
+text-only numbers use their exact spelling, objects ignore member order, and
+arrays preserve element order. Captured original text does not participate in
+numeric hashing, even when it contains more precision than the stored number.
+
+Models can synthesize Hashable when their other properties also support it:
+
+```swift
+struct Pager: Codable, Hashable {
+    let category: String
+    let cursor: JSONValue
+}
+
+var requests: Set<Pager> = []
+let isNewRequest = requests.insert(pager).inserted
+```
+
+Use Set or Dictionary membership for value-based deduplication. A hash can
+collide, and Swift hash values are not stable across executions; do not persist
+hashValue or use it as a request identifier. Request lifecycle and generation
+tracking remain application concerns.
 
 ## What a system Codable round trip does not promise
 

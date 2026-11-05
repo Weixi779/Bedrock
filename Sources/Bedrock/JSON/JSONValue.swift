@@ -6,7 +6,7 @@ import Foundation
 /// Objects ignore member order; arrays preserve order. Strings and object keys use
 /// Swift String equality. Number spellings, whitespace, and escape sequences are
 /// not preserved by system Codable. See JSONNumber for the explicit text escape hatch.
-public enum JSONValue: Equatable, Sendable {
+public enum JSONValue: Hashable, Sendable {
     case null
     case bool(Bool)
     case string(String)

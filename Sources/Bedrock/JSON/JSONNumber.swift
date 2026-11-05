@@ -118,7 +118,7 @@ extension JSONNumber: CustomStringConvertible {
     }
 }
 
-extension JSONNumber: Equatable {
+extension JSONNumber: Hashable {
     /// Numeric representations compare decimal identities, without conversion to Double.
     /// Text-only values compare exact spelling and never equal a numeric representation.
     public static func == (lhs: Self, rhs: Self) -> Bool {
@@ -126,6 +126,19 @@ extension JSONNumber: Equatable {
         case (.textOnly(let leftText), .textOnly(let rightText)): return leftText == rightText
         case (.textOnly, _), (_, .textOnly): return false
         default: return lhs.numericText?.identity == rhs.numericText?.identity
+        }
+    }
+
+    /// Uses the same numeric identity or text-only spelling as equality.
+    /// Captured original text does not affect the hash of numeric representations.
+    public func hash(into hasher: inout Hasher) {
+        switch storage {
+        case .textOnly(let text):
+            hasher.combine(1)
+            hasher.combine(text)
+        default:
+            hasher.combine(0)
+            hasher.combine(numericText?.identity)
         }
     }
 }

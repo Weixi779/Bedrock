@@ -2,7 +2,7 @@
 
 /// Grammar validation and a bounded comparison key; no arithmetic or JSON parsing.
 internal struct JSONNumberText {
-    enum Identity: Equatable {
+    enum Identity: Hashable {
         case number(negative: Bool, digits: String, exponent: Int)
         case unbounded(String)
     }

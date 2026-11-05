@@ -41,8 +41,8 @@ Bedrock 节省了你的时间，欢迎点一个 star。
 
 | Type | Source | Summary |
 | --- | --- | --- |
-| `JSONValue` | [JSONValue.swift](Sources/Bedrock/JSON/JSONValue.swift) | 支持结构相等比较与系统 Codable 的动态 JSON 值。 |
-| `JSONNumber` | [JSONNumber.swift](Sources/Bedrock/JSON/JSONNumber.swift) | 使用 Decimal／Double 表示常用数值，并提供显式保留数字原文的入口。 |
+| `JSONValue` | [JSONValue.swift](Sources/Bedrock/JSON/JSONValue.swift) | 支持 Hashable、结构相等比较与系统 Codable 的动态 JSON 值。 |
+| `JSONNumber` | [JSONNumber.swift](Sources/Bedrock/JSON/JSONNumber.swift) | 支持 Hashable，使用 Decimal／Double 表示常用数值，并提供显式保留数字原文的入口。 |
 
 用法、相等规则与精度限制见 [JSONValue 文档](Docs/JSONValue.md)。系统 Codable 不保证数字原始写法或任意精度；显式文本入口可以保留超出默认数值范围的合法数字，无法通过系统数值编码时明确报错。
 `decodePreservingNumberText` 在可可靠定位时保留数字原文，继续使用系统 Codable 模型与默认数值编码；取不到原文时退回普通解码。
